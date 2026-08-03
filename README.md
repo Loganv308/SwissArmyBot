@@ -55,7 +55,7 @@ Swiss logs every message, edit, deletion, and attachment to a PostgreSQL databas
 | Database | PostgreSQL 16 |
 | DB client | node-postgres (pg) |
 | Containerization | Docker + Docker Compose |
-| Deployment | PM2 + GitHub Actions |
+| Deployment | Docker Compose |
 
 ---
 
@@ -101,56 +101,73 @@ Indexes on `guild_id`, `channel_id`, `user_id`, `timestamp`, and a GIN index on 
 ## Setup
 
 ### Prerequisites
-- Node.js 24+
-- PostgreSQL 16+
-- ffmpeg
+- Docker + Docker Compose (recommended) — or Node.js 24+ and ffmpeg for a manual/PM2 install
+- A reachable PostgreSQL 16+ database (not bundled in `docker-compose.yml` — point `databaseHost` at your own instance)
 - A Discord application and bot token ([Discord Developer Portal](https://discord.com/developers/applications))
 - OpenWeatherMap API key (for `/weather`)
 - Spotify Developer credentials (for Spotify URL support)
 
-### 1. Clone and install
+### 1. Clone and configure
 
 ```bash
 git clone https://github.com/you/swiss.git
 cd swiss
-npm install
 ```
 
-### 2. Configure
-
-Create `config.json` in the project root:
+Create `config.json` in the project root (gitignored, never committed):
 
 ```json
 {
     "token": "your_bot_token",
     "clientId": "your_client_id",
     "guildId": "your_guild_id",
+
+    "autoRoleId": "role_id_to_auto_assign",
     "allowedUsers": ["your_user_id"],
-    "databaseHost": "localhost",
+
+    "databaseHost": "your_postgres_host",
     "databaseUser": "discordbot",
     "databasePass": "your_password",
     "databaseName": "discord_logger",
+
+    "chatDataUser": "postgres",
+    "chatDataPass": "your_password",
+    "chatDataName": "chatpipeline",
+
+    "streamNotifierChannelID": "channel_id",
+    "streamNotifierRoleID": "role_id",
+
     "weatherApiKey": "your_openweathermap_key",
     "spotifyClientId": "your_spotify_client_id",
-    "spotifyClientSecret": "your_spotify_client_secret"
+    "spotifyClientSecret": "your_spotify_client_secret",
+
+    "streamerIDs": ["streamer_login_1", "streamer_login_2"]
 }
 ```
 
-### 3. Set up the database
+### 2. Set up the database
 
 ```bash
-psql -U discordbot -d discord_logger -f schema.sql
+psql -U discordbot -d discord_logger -f database/schema.sql
 ```
 
-### 4. Register slash commands
+### 3. Run it
+
+**Docker (recommended):**
 
 ```bash
+docker compose up -d --build
+docker compose run --rm bot node deploy-commands.js   # one-time slash command registration
+docker compose logs -f bot
+```
+
+`docker-compose.yml` runs only the bot container — `config.json` is bind-mounted in read-only, so you can edit it without rebuilding. The container is set to `restart: unless-stopped` and reaps child processes via `init: true`, which covers the auto-restart and clean-shutdown behavior PM2 used to provide.
+
+**Manually (PM2 or plain Node):**
+
+```bash
+npm install
 node deploy-commands.js
-```
-
-### 5. Start the bot
-
-```bash
 node index.js
 ```
 

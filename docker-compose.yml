@@ -1,0 +1,14 @@
+services:
+  bot:
+    build: .
+    restart: unless-stopped
+    # Reaps the ffmpeg/yt-dlp child processes the bot spawns and forwards
+    # SIGTERM properly on `docker compose stop` (PM2 handled this for free).
+    init: true
+    volumes:
+      - ./config.json:/app/config.json:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
